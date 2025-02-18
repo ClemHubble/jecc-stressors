@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Stress Level Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="tooltip"></div>
+
+    <div class="nav-buttons">
+        <button id="prev-button">&lt; Previous</button>
+        <button id="next-button">Next &gt;</button>
+    </div>
+    <div id="current-subject"></div>
+    <div class="chart-container">
+        <div id="proportional-chart"></div>
+        <div id="equal-width-chart"></div>
+    </div>
+    <script>
+        const margin = { top: 20, right: 30, bottom: 80, left: 50 };
+        const width = 1200 - margin.left - margin.right;
+        const proportionalHeight = 400 - margin.top - margin.bottom;
+        const equalWidthHeight = 350 - margin.top - margin.bottom;
+
+        const validSubjects = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18];
+        let currentSubjectIndex = 0;
+
+        const colorScale = d3.scaleOrdinal()
+            .domain(['baseline', 'tmct', 'first rest', 'real opinion',
+                'opposite opinion', 'second rest', 'subtract', 'no phase'])
+            .range(['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
+                '#9467bd', '#2ca02c', '#8c564b', '#d3d3d3']);
+
+        const showTooltip = (event, phase) => {
+            if (phase.phase === "no phase") return;
+            const disparity = Math.abs(phase.reportedMean - phase.observedMean).toFixed(2);
+            const type = phase.reportedMean > phase.observedMean ? "Overestimated" : "Underestimated";
+
+            d3.select("#tooltip")
+                .style("left", (event.pageX + 10) + "px")
+                .style("top", (event.pageY - 28) + "px")
+                .html(`
+                    <strong>${phase.phase}</strong><br/>
+                    ${type} by ${disparity} points<br/>
+                    Reported: ${phase.reportedMean.toFixed(2)}<br/>
+                    Observed: ${phase.observedMean.toFixed(2)}
+                `)
+                .transition()
+                .duration(200)
+                .style("opacity", 0.9);
+        };
+
+        const hideTooltip = () => {
+            d3.select("#tooltip")
+                .transition()
+                .duration(500)
+                .style("opacity", 0);
+        };
+
+        function updateCharts(subjectNumber) {
+            d3.select("#proportional-chart").html("");
+            d3.select("#equal-width-chart").html("");
+
+            d3.select("#current-subject")
+                .text(`Subject f${subjectNumber.toString().padStart(2, '0')}`);
+
+            const proportionalSvg = d3.select("#proportional-chart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", proportionalHeight + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const equalWidthSvg = d3.select("#equal-width-chart")
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", equalWidthHeight + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            d3.csv(`data/f${subjectNumber.toString().padStart(2, '0')}.csv`).then(function (data) {
+                data.forEach(d => {
+                    d.relative_time = +d.relative_time;
+                    d.observed_stress = +d.observed_stress;
+                    d.reported_stress = +d.reported_stress;
+                });
+
+                const phases = d3.group(data, d => d.phase);
+
+                const phaseInfo = Array.from(phases).map(([phase, data]) => {
+                    return {
+                        phase,
+                        start: d3.min(data, d => d.relative_time),
+                        end: d3.max(data, d => d.relative_time),
+                        data: data,
+                        observedMean: d3.mean(data, d => d.observed_stress),
+                        reportedMean: d3.mean(data, d => d.reported_stress)
+                    };
+                });
+
+                phaseInfo.sort((a, b) => a.start - b.start);
+
+                const noPhaseData = phaseInfo.find(p => p.phase === "no phase");
+                const regularPhases = phaseInfo.filter(p => p.phase !== "no phase");
+
+                const xScaleProp = d3.scaleLinear()
+                    .domain([d3.min(data, d => d.relative_time), d3.max(data, d => d.relative_time)])
+                    .range([0, width]);
+
+                const yScaleProp = d3.scaleLinear()
+                    .domain([0, 10])
+                    .range([proportionalHeight, 0]);
+
+                const xScaleEqual = d3.scalePoint()
+                    .domain(regularPhases.map(p => p.phase))
+                    .range([0, width])
+                    .padding(0.1);
+
+                const yScaleEqual = d3.scaleLinear()
+                    .domain([0, 10])
+                    .range([equalWidthHeight, 0]);
+
+                drawProportionalView(proportionalSvg, data, phases, regularPhases, xScaleProp, yScaleProp);
+
+                if (noPhaseData) {
+                    const segments = [];
+                    let currentSegment = [noPhaseData.data[0]];
+
+                    for (let i = 1; i < noPhaseData.data.length; i++) {
+                        const timeDiff = noPhaseData.data[i].relative_time - noPhaseData.data[i - 1].relative_time;
+                        if (timeDiff > 1) {
+                            segments.push(currentSegment);
+                            currentSegment = [];
+                        }
+                        currentSegment.push(noPhaseData.data[i]);
+                    }
+                    if (currentSegment.length > 0) {
+                        segments.push(currentSegment);
+                    }
+
+                    segments.forEach(segment => {
+                        proportionalSvg.append("path")
+                            .datum(segment)
+                            .attr("class", "line")
+                            .style("stroke", colorScale("no phase"))
+                            .attr("d", d3.line()
+                                .x(d => xScaleProp(d.relative_time))
+                                .y(d => yScaleProp(d.observed_stress))
+                                .curve(d3.curveBasis));
+                    });
+                }
+
+                drawEqualWidthView(equalWidthSvg, regularPhases, xScaleEqual, yScaleEqual, data);
+
+                addLegend(proportionalSvg, regularPhases);
+            });
+        }
+
+        function drawProportionalView(svg, data, phases, phaseInfo, xScale, yScale) {
+            phaseInfo.forEach(phase => {
+                svg.append("rect")
+                    .attr("class", "disparity-area")
+                    .attr("x", xScale(phase.start))
+                    .attr("y", yScale(Math.max(phase.observedMean, phase.reportedMean)))
+                    .attr("width", xScale(phase.end) - xScale(phase.start))
+                    .attr("height", Math.abs(yScale(phase.observedMean) - yScale(phase.reportedMean)))
+                    .style("fill", phase.reportedMean > phase.observedMean ? "#ff000060" : "#00ff0060")
+                    .on("mouseover", (event) => showTooltip(event, phase))
+                    .on("mouseout", hideTooltip);
+
+                svg.append("path")
+                    .datum(phase.data)
+                    .attr("class", "line")
+                    .style("stroke", colorScale(phase.phase))
+                    .attr("d", d3.line()
+                        .x(d => xScale(d.relative_time))
+                        .y(d => yScale(d.observed_stress))
+                        .curve(d3.curveBasis));
+
+                svg.append("line")
+                    .attr("class", "mean-line")
+                    .attr("x1", xScale(phase.start))
+                    .attr("x2", xScale(phase.end))
+                    .attr("y1", yScale(phase.observedMean))
+                    .attr("y2", yScale(phase.observedMean))
+                    .style("stroke", colorScale(phase.phase));
+
+                svg.append("line")
+                    .attr("class", "reported-line")
+                    .attr("x1", xScale(phase.start))
+                    .attr("x2", xScale(phase.end))
+                    .attr("y1", yScale(phase.reportedMean))
+                    .attr("y2", yScale(phase.reportedMean))
+                    .style("stroke", colorScale(phase.phase));
+            });
+
+            svg.append("g")
+                .attr("transform", `translate(0,${proportionalHeight})`)
+                .call(d3.axisBottom(xScale))
+                .append("text")
+                .attr("class", "axis-label")
+                .attr("x", width / 2)
+                .attr("y", 50)
+                .text("Time (seconds)");
+
+            svg.append("g")
+                .call(d3.axisLeft(yScale))
+                .append("text")
+                .attr("class", "axis-label")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -proportionalHeight / 2)
+                .attr("y", -50)
+                .text("Stress Level");
+
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", -20)
+                .attr("text-anchor", "middle")
+                .style("font-size", "18px")
+                .text("Proportional Timeline View");
+        }
+
+        function drawEqualWidthView(svg, phaseInfo, xScale, yScale, data) {
+            const barWidth = width / (phaseInfo.length * 2);
+
+            svg.append("g")
+                .attr("transform", "translate(-10,0)")
+                .call(d3.axisLeft(yScale).ticks(10)) 
+                .append("text")
+                .attr("class", "axis-label")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -equalWidthHeight / 2)
+                .attr("y", -60)
+                .text("Stress Level");
+
+            phaseInfo.forEach(phase => {
+                const x = xScale(phase.phase);
+
+                const phaseXScale = d3.scaleLinear()
+                    .domain([phase.start, phase.end])
+                    .range([x - barWidth, x + barWidth]);
+
+                const xAxis = svg.append("g")
+                    .attr("transform", `translate(0,${equalWidthHeight})`)
+                    .call(d3.axisBottom(phaseXScale)
+                        .ticks(2)
+                        .tickFormat(d => Math.round(d)) 
+                    );
+
+
+                xAxis.selectAll("text")
+                    .attr("transform", "translate(-10,10) rotate(-45)")
+                    .style("text-anchor", "end")
+                    .style("font-size", "10px");
+
+                const phaseData = data.filter(d => d.phase === phase.phase);
+
+                svg.append("rect")
+                    .attr("class", "disparity-area")
+                    .attr("x", x - barWidth)
+                    .attr("y", yScale(Math.max(phase.observedMean, phase.reportedMean)))
+                    .attr("width", barWidth * 2)
+                    .attr("height", Math.abs(yScale(phase.observedMean) - yScale(phase.reportedMean)))
+                    .style("fill", phase.reportedMean > phase.observedMean ? "#ff000060" : "#00ff0060")
+                    .on("mouseover", (event) => showTooltip(event, phase))
+                    .on("mouseout", hideTooltip);
+
+                svg.append("path")
+                    .datum(phaseData)
+                    .attr("class", "line")
+                    .style("stroke", colorScale(phase.phase))
+                    .attr("d", d3.line()
+                        .x(d => phaseXScale(d.relative_time))
+                        .y(d => yScale(d.observed_stress))
+                        .curve(d3.curveBasis));
+
+                svg.append("rect")
+                    .attr("x", x - barWidth)
+                    .attr("y", 0)
+                    .attr("width", barWidth * 2)
+                    .attr("height", equalWidthHeight)
+                    .attr("fill", "none")
+                    .attr("stroke", colorScale(phase.phase))
+                    .attr("stroke-width", 1);
+
+                svg.append("line")
+                    .attr("class", "mean-line")
+                    .attr("x1", x - barWidth)
+                    .attr("x2", x + barWidth)
+                    .attr("y1", yScale(phase.observedMean))
+                    .attr("y2", yScale(phase.observedMean))
+                    .style("stroke", colorScale(phase.phase));
+
+                svg.append("line")
+                    .attr("class", "reported-line")
+                    .attr("x1", x - barWidth)
+                    .attr("x2", x + barWidth)
+                    .attr("y1", yScale(phase.reportedMean))
+                    .attr("y2", yScale(phase.reportedMean))
+                    .style("stroke", colorScale(phase.phase));
+
+                svg.append("text")
+                    .attr("x", x)
+                    .attr("y", equalWidthHeight + 60) 
+                    .attr("text-anchor", "middle")
+                    .style("font-weight", "bold")
+                    .text(phase.phase);
+            });
+
+            svg.append("text")
+                .attr("x", width / 2)
+                .attr("y", -20)
+                .attr("text-anchor", "middle")
+                .style("font-size", "18px")
+                .text("Equal Width Phase View");
+        }
+
+
+        function addLegend(svg, phaseInfo) {
+            const legend = svg.append("g")
+                .attr("class", "legend")
+                .attr("transform", `translate(${width + 20}, 0)`);
+
+            const noPhaseRow = legend.append("g")
+                .attr("transform", `translate(0, 0)`);
+
+            noPhaseRow.append("line")
+                .attr("x1", 0)
+                .attr("x2", 85)
+                .attr("y1", 0)
+                .attr("y2", 0)
+                .style("stroke", colorScale("no phase"))
+                .style("stroke-width", 2);
+
+            noPhaseRow.append("text")
+                .attr("x", 90)
+                .attr("y", 4)
+                .text("no phase");
+
+            phaseInfo.forEach((phase, i) => {
+                const legendRow = legend.append("g")
+                    .attr("transform", `translate(0, ${(i + 1) * 25})`);
+
+                legendRow.append("line")
+                    .attr("x1", 0)
+                    .attr("x2", 25)
+                    .attr("y1", 0)
+                    .attr("y2", 0)
+                    .style("stroke", colorScale(phase.phase))
+                    .style("stroke-width", 2);
+
+                legendRow.append("line")
+                    .attr("class", "mean-line")
+                    .attr("x1", 30)
+                    .attr("x2", 55)
+                    .attr("y1", 0)
+                    .attr("y2", 0)
+                    .style("stroke", colorScale(phase.phase));
+
+                legendRow.append("line")
+                    .attr("class", "reported-line")
+                    .attr("x1", 60)
+                    .attr("x2", 85)
+                    .attr("y1", 0)
+                    .attr("y2", 0)
+                    .style("stroke", colorScale(phase.phase));
+
+                legendRow.append("text")
+                    .attr("x", 90)
+                    .attr("y", 4)
+                    .text(phase.phase);
+            });
+        }
+
+        updateCharts(validSubjects[currentSubjectIndex]);
+
+        d3.select("#prev-button").on("click", () => {
+            currentSubjectIndex = (currentSubjectIndex - 1 + validSubjects.length) % validSubjects.length;
+            updateCharts(validSubjects[currentSubjectIndex]);
+        });
+
+        d3.select("#next-button").on("click", () => {
+            currentSubjectIndex = (currentSubjectIndex + 1) % validSubjects.length;
+            updateCharts(validSubjects[currentSubjectIndex]);
+        });
+    </script>
+</body>
+
+</html>
