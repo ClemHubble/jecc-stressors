@@ -2,391 +2,820 @@
 <html>
 
 <head>
-    <title>Stress Level Visualization</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <title>Stress Level Visualization</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <style>
+    /* Global Styles */
+    body,
+    button,
+    text {
+      font-family: 'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 20px;
+    }
+
+    .chart-container {
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    h2,
+    .proportional-x-label,
+    .equal-x-label,
+    #current-subject {
+      min-height: 30px;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+      font-weight: normal;
+    }
+
+    /* Navigation Buttons */
+    .nav-buttons {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .nav-buttons button {
+      padding: 8px 20px;
+      margin: 0 10px;
+      cursor: pointer;
+      font-size: 16px;
+      background: #0366d6;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      transition: background 0.3s ease;
+    }
+
+    .nav-buttons button:hover {
+      background: #024ea2;
+    }
+
+    /* Phase Toggle Container */
+    #phase-toggle-container {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    #phase-toggle-container label {
+      margin: 0 10px;
+    }
+
+    /* Current Subject */
+    #current-subject {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 20px;
+    }
+
+    /* Subject Indicator and Summary */
+    #subject-indicator {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .subject-dot {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin: 0 4px;
+      border-radius: 50%;
+      background-color: #ccc;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .subject-dot.active {
+      border: 2px solid #000;
+    }
+
+    .subject-dot.invalid {
+      background-color: #f0f0f0;
+      cursor: not-allowed;
+    }
+
+    /* Tooltip for every dot */
+    .subject-dot:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+      font-size: 12px;
+    }
+
+    #subject-summary {
+      text-align: center;
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+
+    /* Proportional Chart */
+    #proportional-chart-wrapper {
+      max-width: 1200px;
+      width: 100%;
+      overflow-x: auto;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    #proportional-chart {
+      min-height: 350px;
+      width: 1200px;
+    }
+
+    .proportional-y-label {
+      position: absolute;
+      left: -24px;
+      top: 50%;
+      transform: translateY(-50%) rotate(-90deg);
+      font-size: 14px;
+    }
+
+    .proportional-x-label {
+      text-align: center;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+
+    /* Equal-width Chart */
+    #equal-width-phase-wrapper {
+      max-width: 1200px;
+      width: 100%;
+      overflow-x: auto;
+      margin: 20px auto 0;
+      position: relative;
+    }
+
+    .equal-y-label {
+      position: absolute;
+      left: -24px;
+      top: 50%;
+      transform: translateY(-50%) rotate(-90deg);
+      font-size: 14px;
+    }
+
+    #equal-width-subcharts {
+      display: flex;
+      gap: 8px;
+      min-height: 340px;
+      width: 1200px;
+    }
+
+    .equal-x-label {
+      text-align: center;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+
+    /* Subchart Styles */
+    .subchart-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .subchart-footer {
+      margin-top: 5px;
+      font-size: 14px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 0 8px;
+      box-sizing: border-box;
+    }
+
+    .subchart-label {
+      text-align: center;
+    }
+
+    .subchart-indicator {
+      text-align: center;
+      font-weight: bold;
+    }
+
+    /* D3 Chart Elements */
+    .line {
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .mean-line {
+      stroke-dasharray: 5, 5;
+      stroke-width: 1.5;
+    }
+
+    .reported-line {
+      stroke-dasharray: 7, 10;
+      stroke-width: 4;
+      stroke-linecap: round;
+    }
+
+    #tooltip {
+      position: absolute;
+      padding: 10px;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      pointer-events: none;
+      font-size: 14px;
+      box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.1);
+      opacity: 0;
+      z-index: 1000;
+    }
+
+    /* Introduction Section */
+    #intro {
+      max-width: 1200px;
+      margin: 20px auto;
+      text-align: center;
+    }
+
+    #intro h1 {
+      margin-bottom: 0.5em;
+    }
+
+    /* Phase Grid */
+    .phase-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin: 20px 0;
+    }
+
+    .phase-item {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 10px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .phase-item.no-phase {
+      background: #f5f5f5;
+      padding: 20px;
+    }
+
+    .phase-item img {
+      width: 100%;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .phase-item p {
+      font-size: 0.85em;
+      margin: 0;
+    }
+
+    /* Citation Styling */
+    .citation {
+      max-width: 1200px;
+      margin: 20px auto;
+      text-align: center;
+      font-size: 0.9em;
+      color: #555;
+    }
+
+    .citation a {
+      color: #0366d6;
+      text-decoration: none;
+    }
+  </style>
 </head>
 
 <body>
-    <div id="tooltip"></div>
-
-    <div class="nav-buttons">
-        <button id="prev-button">&lt; Previous</button>
-        <button id="next-button">Next &gt;</button>
+  <div id="intro">
+    <h1>How good are humans at gauging their actual vs. perceived stress?</h1>
+    <p class="citation">
+      Hongn, A., Bosch, F., Prado, L., &amp; Bonomini, P. (2025). <em>Wearable Device Dataset from Induced Stress
+        and Structured Exercise Sessions</em> [Data set]. PhysioNet. (Version 1.0.0).
+      <a href="https://doi.org/10.13026/zzf8-xv61" target="_blank">https://doi.org/10.13026/zzf8-xv61</a>
+    </p>
+    <p>
+      Understanding how well people can assess their own stress levels is crucial for mental health awareness and
+      effective stress management. While we often rely on self-reported stress measures, these subjective
+      assessments may not always align with our body's physiological response to stressful situations. This
+      disconnect between perceived and actual stress levels can impact our ability to recognize when we need to
+      take action to manage our stress effectively.
+    </p>
+    <p>
+      This interactive visualization compares an <u>observed stress metric</u>, derived from physiological
+      signals, with self-reported stress levels. We focus on a stress induction protocol from the <cite>Wearable
+        Device Dataset from Induced Stress and Structured Exercise Sessions</cite> (Hongn et al., 2025).
+    </p>
+    <p>
+      Various measurements, including heart rate, electrodermal activity, and blood volume pulse, were collected
+      through a wristband during an experimental protocol. Each phase of the protocol is designed to either induce
+      or alleviate stress through specific tasks and recovery periods. The protocol is broken down into 7 phases:
+    </p>
+    <div class="phase-grid">
+      <div class="phase-item">
+        <img src="assets/baseline.png" alt="Baseline phase">
+        <p><strong>Baseline:</strong> A 3-minute period at rest used to establish a physiological reference
+          point.</p>
+      </div>
+      <div class="phase-item">
+        <img src="assets/tmct.png" alt="TMCT phase">
+        <p><strong>TMCT:</strong> A modified Trier Mental Challenge Test that involves time-pressured
+          mathematical tasks designed to induce acute stress.</p>
+      </div>
+      <div class="phase-item">
+        <img src="assets/first-rest.png" alt="First Rest phase">
+        <p><strong>First Rest:</strong> A 5-minute recovery period following the TMCT, allowing participants to
+          begin returning to baseline levels.</p>
+      </div>
+      <div class="phase-item">
+        <img src="assets/real-opinion.png" alt="Real Opinion phase">
+        <p><strong>Real Opinion:</strong> Participants share their genuine opinions on controversial topics,
+          introducing a social-cognitive component to the stress response.</p>
+      </div>
+      <div class="phase-item">
+        <img src="assets/opposite-opinion.png" alt="Opposite Opinion phase">
+        <p><strong>Opposite Opinion:</strong> Participants argue against their true beliefs, adding cognitive
+          dissonance and further stress.</p>
+      </div>
+      <div class="phase-item">
+        <img src="assets/second-rest.png" alt="Second Rest phase">
+        <p><strong>Second Rest:</strong> A second recovery period after the opinion tasks to help reduce stress
+          levels before the next challenge.</p>
+      </div>
+      <div class="phase-item">
+        <img src="assets/subtract.png" alt="Subtract phase">
+        <p><strong>Subtract:</strong> Participants were asked to subtract 13 from 1022 until they reached 0,
+          designed to elicit an additional stress response.</p>
+      </div>
+      <div class="phase-item no-phase">
+        <p><strong>No Phase:</strong> Data segments that do not correspond to any structured phase, often
+          representing transitional or unclassified periods.</p>
+      </div>
     </div>
-    <div id="current-subject"></div>
-    <div class="chart-container">
-        <div id="proportional-chart"></div>
-        <div id="equal-width-chart"></div>
+    <p>
+      Explore the visualization below to see how the objectively measured stress levels compare with participants'
+      self-assessments across these experimental conditions:
+    </p>
+  </div>
+
+  <div id="tooltip"></div>
+  <div class="nav-buttons">
+    <button id="prev-button">&lt; Previous</button>
+    <button id="next-button">Next &gt;</button>
+  </div>
+  <div id="current-subject"></div>
+  <div id="subject-indicator"></div>
+  <div id="subject-summary"></div>
+  <div class="chart-container">
+    <h2>Equal-width, Per-phase View</h2>
+    <div id="equal-width-phase-wrapper">
+      <div class="equal-y-label">Stress Level</div>
+      <div id="equal-width-subcharts"></div>
+      <div class="equal-x-label">Time Since Start</div>
     </div>
-    <script>
-        const margin = { top: 20, right: 30, bottom: 80, left: 50 };
-        const width = 1200 - margin.left - margin.right;
-        const proportionalHeight = 400 - margin.top - margin.bottom;
-        const equalWidthHeight = 350 - margin.top - margin.bottom;
 
-        const validSubjects = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18];
-        let currentSubjectIndex = 0;
+    <h2>Proportional Timeline View</h2>
+    <div id="proportional-chart-wrapper">
+      <div id="proportional-chart"></div>
+      <div class="proportional-y-label">Stress Level</div>
+      <div class="proportional-x-label">Time Since Start</div>
+    </div>
+    <div id="phase-toggle-container"></div>
+  </div>
 
-        const colorScale = d3.scaleOrdinal()
-            .domain(['baseline', 'tmct', 'first rest', 'real opinion',
-                'opposite opinion', 'second rest', 'subtract', 'no phase'])
-            .range(['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728',
-                '#9467bd', '#2ca02c', '#8c564b', '#d3d3d3']);
+  <script>
+    const TOTAL_WIDTH = 1200;
+    const propMargin = { top: 20, right: 10, bottom: 20, left: 60 };
+    const propWidth = TOTAL_WIDTH - propMargin.left - propMargin.right;
+    const propHeight = 300;
+    const subchartHeight = 300;
+    const subchartGap = 8;
+    const eqMarginFirst = { top: 20, right: 10, bottom: 30, left: 60 };
+    const eqMarginOther = { top: 20, right: 10, bottom: 30, left: 10 };
 
-        const showTooltip = (event, phase) => {
-            if (phase.phase === "no phase") return;
-            const disparity = Math.abs(phase.reportedMean - phase.observedMean).toFixed(2);
-            const type = phase.reportedMean > phase.observedMean ? "Overestimated" : "Underestimated";
+    // Valid subjects (excluding 7 and 14 for invalid data)
+    const validSubjects = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18];
+    let currentSubjectIndex = 0;
 
-            d3.select("#tooltip")
-                .style("left", (event.pageX + 10) + "px")
-                .style("top", (event.pageY - 28) + "px")
-                .html(`
-                    <strong>${phase.phase}</strong><br/>
-                    ${type} by ${disparity} points<br/>
-                    Reported: ${phase.reportedMean.toFixed(2)}<br/>
-                    Observed: ${phase.observedMean.toFixed(2)}
-                `)
-                .transition()
-                .duration(200)
-                .style("opacity", 0.9);
-        };
+    const phaseLineColors = {
+      "baseline": "#808080",
+      "tmct": "#ff8c00",
+      "first rest": "#6fb07a",
+      "real opinion": "#ff8c00",
+      "opposite opinion": "#ff8c00",
+      "second rest": "#6fb07a",
+      "subtract": "#ff8c00",
+      "no phase": "#e0e0e0"
+    };
 
-        const hideTooltip = () => {
-            d3.select("#tooltip")
-                .transition()
-                .duration(500)
-                .style("opacity", 0);
-        };
+    const phaseBackgroundColors = {
+      "baseline": "#f5f5f5",
+      "tmct": "#fff3e0",
+      "first rest": "#e8f5e9",
+      "real opinion": "#fff3e0",
+      "opposite opinion": "#fff3e0",
+      "second rest": "#e8f5e9",
+      "subtract": "#fff3e0",
+      "no phase": "#f5f5f5"
+    };
 
-        function updateCharts(subjectNumber) {
-            d3.select("#proportional-chart").html("");
-            d3.select("#equal-width-chart").html("");
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
 
-            d3.select("#current-subject")
-                .text(`Subject f${subjectNumber.toString().padStart(2, '0')}`);
+    function createGradient(defs, id, observed, reported, baseColor) {
+      const gradient = defs.append("linearGradient")
+        .attr("id", id)
+        .attr("x1", "0%")
+        .attr("y1", "0%")
+        .attr("x2", "0%")
+        .attr("y2", "100%");
+      if (reported > observed) {
+        gradient.append("stop")
+          .attr("offset", "0%")
+          .attr("stop-color", baseColor)
+          .attr("stop-opacity", 0.6);
+        gradient.append("stop")
+          .attr("offset", "100%")
+          .attr("stop-color", baseColor)
+          .attr("stop-opacity", 0);
+      } else {
+        gradient.append("stop")
+          .attr("offset", "0%")
+          .attr("stop-color", baseColor)
+          .attr("stop-opacity", 0);
+        gradient.append("stop")
+          .attr("offset", "100%")
+          .attr("stop-color", baseColor)
+          .attr("stop-opacity", 0.6);
+      }
+    }
 
-            const proportionalSvg = d3.select("#proportional-chart")
-                .append("svg")
-                .attr("width", width + margin.left + margin.right)
-                .attr("height", proportionalHeight + margin.top + margin.bottom)
-                .append("g")
-                .attr("transform", `translate(${margin.left},${margin.top})`);
+    const showTooltip = (event, phase) => {
+      if (phase.phase === "no phase") return;
+      const disparity = Math.abs(phase.reportedMean - phase.observedMean).toFixed(2);
+      const type = phase.reportedMean > phase.observedMean ? "Overestimated" : "Underestimated";
+      d3.select("#tooltip")
+        .style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 28) + "px")
+        .html(`
+          <strong>${phase.phase}</strong><br/>
+          ${type} by ${disparity} points<br/>
+          Reported: ${phase.reportedMean.toFixed(2)}<br/>
+          Observed: ${phase.observedMean.toFixed(2)}
+        `)
+        .transition()
+        .duration(200)
+        .style("opacity", 0.9);
+    };
 
-            const equalWidthSvg = d3.select("#equal-width-chart")
-                .append("svg")
-                .attr("width", width + margin.left + margin.right)
-                .attr("height", equalWidthHeight + margin.top + margin.bottom)
-                .append("g")
-                .attr("transform", `translate(${margin.left},${margin.top})`);
+    const hideTooltip = () => {
+      d3.select("#tooltip")
+        .transition()
+        .duration(500)
+        .style("opacity", 0);
+    };
 
-            d3.csv(`data/f${subjectNumber.toString().padStart(2, '0')}.csv`).then(function (data) {
-                data.forEach(d => {
-                    d.relative_time = +d.relative_time;
-                    d.observed_stress = +d.observed_stress;
-                    d.reported_stress = +d.reported_stress;
-                });
-
-                const phases = d3.group(data, d => d.phase);
-
-                const phaseInfo = Array.from(phases).map(([phase, data]) => {
-                    return {
-                        phase,
-                        start: d3.min(data, d => d.relative_time),
-                        end: d3.max(data, d => d.relative_time),
-                        data: data,
-                        observedMean: d3.mean(data, d => d.observed_stress),
-                        reportedMean: d3.mean(data, d => d.reported_stress)
-                    };
-                });
-
-                phaseInfo.sort((a, b) => a.start - b.start);
-
-                const noPhaseData = phaseInfo.find(p => p.phase === "no phase");
-                const regularPhases = phaseInfo.filter(p => p.phase !== "no phase");
-
-                const xScaleProp = d3.scaleLinear()
-                    .domain([d3.min(data, d => d.relative_time), d3.max(data, d => d.relative_time)])
-                    .range([0, width]);
-
-                const yScaleProp = d3.scaleLinear()
-                    .domain([0, 10])
-                    .range([proportionalHeight, 0]);
-
-                const xScaleEqual = d3.scalePoint()
-                    .domain(regularPhases.map(p => p.phase))
-                    .range([0, width])
-                    .padding(0.1);
-
-                const yScaleEqual = d3.scaleLinear()
-                    .domain([0, 10])
-                    .range([equalWidthHeight, 0]);
-
-                drawProportionalView(proportionalSvg, data, phases, regularPhases, xScaleProp, yScaleProp);
-
-                if (noPhaseData) {
-                    const segments = [];
-                    let currentSegment = [noPhaseData.data[0]];
-
-                    for (let i = 1; i < noPhaseData.data.length; i++) {
-                        const timeDiff = noPhaseData.data[i].relative_time - noPhaseData.data[i - 1].relative_time;
-                        if (timeDiff > 1) {
-                            segments.push(currentSegment);
-                            currentSegment = [];
-                        }
-                        currentSegment.push(noPhaseData.data[i]);
-                    }
-                    if (currentSegment.length > 0) {
-                        segments.push(currentSegment);
-                    }
-
-                    segments.forEach(segment => {
-                        proportionalSvg.append("path")
-                            .datum(segment)
-                            .attr("class", "line")
-                            .style("stroke", colorScale("no phase"))
-                            .attr("d", d3.line()
-                                .x(d => xScaleProp(d.relative_time))
-                                .y(d => yScaleProp(d.observed_stress))
-                                .curve(d3.curveBasis));
-                    });
-                }
-
-                drawEqualWidthView(equalWidthSvg, regularPhases, xScaleEqual, yScaleEqual, data);
-
-                addLegend(proportionalSvg, regularPhases);
-            });
+    function applyToggleStyles() {
+      let activePhases = [];
+      d3.selectAll("#phase-toggle-container input[type='checkbox']").each(function () {
+        if (this.checked) {
+          activePhases.push(this.value);
         }
+      });
+      if (activePhases.length === 0) {
+        d3.selectAll("[data-phase]").style("display", null);
+      } else {
+        d3.selectAll("[data-phase]").each(function () {
+          let elPhase = d3.select(this).attr("data-phase");
+          if (activePhases.includes(elPhase)) {
+            d3.select(this).style("display", null);
+          } else {
+            d3.select(this).style("display", "none");
+          }
+        });
+      }
+    }
 
-        function drawProportionalView(svg, data, phases, phaseInfo, xScale, yScale) {
-            phaseInfo.forEach(phase => {
-                svg.append("rect")
-                    .attr("class", "disparity-area")
-                    .attr("x", xScale(phase.start))
-                    .attr("y", yScale(Math.max(phase.observedMean, phase.reportedMean)))
-                    .attr("width", xScale(phase.end) - xScale(phase.start))
-                    .attr("height", Math.abs(yScale(phase.observedMean) - yScale(phase.reportedMean)))
-                    .style("fill", phase.reportedMean > phase.observedMean ? "#ff000060" : "#00ff0060")
-                    .on("mouseover", (event) => showTooltip(event, phase))
-                    .on("mouseout", hideTooltip);
+    // Create phase toggle checkboxes using CSS class
+    const allPhases = ["baseline", "tmct", "first rest", "real opinion", "opposite opinion", "second rest", "subtract", "no phase"];
+    const phaseToggleContainer = d3.select("#phase-toggle-container");
+    allPhases.forEach(phase => {
+      phaseToggleContainer.append("label")
+        .attr("class", "phase-toggle-label")
+        .html(`<input type="checkbox" value="${phase}"> ${phase}`);
+    });
+    d3.selectAll("#phase-toggle-container input[type='checkbox']").on("change", applyToggleStyles);
 
-                svg.append("path")
-                    .datum(phase.data)
-                    .attr("class", "line")
-                    .style("stroke", colorScale(phase.phase))
-                    .attr("d", d3.line()
-                        .x(d => xScale(d.relative_time))
-                        .y(d => yScale(d.observed_stress))
-                        .curve(d3.curveBasis));
-
-                svg.append("line")
-                    .attr("class", "mean-line")
-                    .attr("x1", xScale(phase.start))
-                    .attr("x2", xScale(phase.end))
-                    .attr("y1", yScale(phase.observedMean))
-                    .attr("y2", yScale(phase.observedMean))
-                    .style("stroke", colorScale(phase.phase));
-
-                svg.append("line")
-                    .attr("class", "reported-line")
-                    .attr("x1", xScale(phase.start))
-                    .attr("x2", xScale(phase.end))
-                    .attr("y1", yScale(phase.reportedMean))
-                    .attr("y2", yScale(phase.reportedMean))
-                    .style("stroke", colorScale(phase.phase));
-            });
-
-            svg.append("g")
-                .attr("transform", `translate(0,${proportionalHeight})`)
-                .call(d3.axisBottom(xScale))
-                .append("text")
-                .attr("class", "axis-label")
-                .attr("x", width / 2)
-                .attr("y", 50)
-                .text("Time (seconds)");
-
-            svg.append("g")
-                .call(d3.axisLeft(yScale))
-                .append("text")
-                .attr("class", "axis-label")
-                .attr("transform", "rotate(-90)")
-                .attr("x", -proportionalHeight / 2)
-                .attr("y", -50)
-                .text("Stress Level");
-
-            svg.append("text")
-                .attr("x", width / 2)
-                .attr("y", -20)
-                .attr("text-anchor", "middle")
-                .style("font-size", "18px")
-                .text("Proportional Timeline View");
+    // Create subject indicator dots (18 total; subjects 7 & 14 are invalid)
+    function createSubjectIndicators() {
+      const indicator = d3.select("#subject-indicator");
+      indicator.selectAll("*").remove();
+      for (let i = 1; i <= 18; i++) {
+        let dot = indicator.append("span")
+          .attr("class", "subject-dot" + (validSubjects.includes(i) ? "" : " invalid"))
+          .attr("data-subject", i);
+        if (validSubjects.includes(i)) {
+          dot.attr("data-tooltip", `Subject f${String(i).padStart(2, '0')}`);
+        } else {
+          dot.attr("data-tooltip", `Subject f${String(i).padStart(2, '0')} is disabled due to invalid data`);
         }
+        dot.on("click", function () {
+          const subj = +d3.select(this).attr("data-subject");
+          if (validSubjects.includes(subj)) {
+            currentSubjectIndex = validSubjects.indexOf(subj);
+            updateCharts(subj);
+            updateActiveSubjectIndicator(subj);
+          }
+        });
+      }
+    }
 
-        function drawEqualWidthView(svg, phaseInfo, xScale, yScale, data) {
-            const barWidth = width / (phaseInfo.length * 2);
+    function updateActiveSubjectIndicator(currentValidSubject) {
+      d3.selectAll("#subject-indicator .subject-dot")
+        .classed("active", function () {
+          return +d3.select(this).attr("data-subject") === currentValidSubject;
+        });
+    }
 
-            svg.append("g")
-                .attr("transform", "translate(-10,0)")
-                .call(d3.axisLeft(yScale).ticks(10)) 
-                .append("text")
-                .attr("class", "axis-label")
-                .attr("transform", "rotate(-90)")
-                .attr("x", -equalWidthHeight / 2)
-                .attr("y", -60)
-                .text("Stress Level");
+    createSubjectIndicators();
 
-            phaseInfo.forEach(phase => {
-                const x = xScale(phase.phase);
+    function updateCharts(subjectNumber) {
+      d3.select("#proportional-chart").selectAll("*").remove();
+      d3.select("#equal-width-subcharts").selectAll("*").remove();
+      d3.select("#current-subject").text(`Subject f${String(subjectNumber).padStart(2, '0')}`);
 
-                const phaseXScale = d3.scaleLinear()
-                    .domain([phase.start, phase.end])
-                    .range([x - barWidth, x + barWidth]);
-
-                const xAxis = svg.append("g")
-                    .attr("transform", `translate(0,${equalWidthHeight})`)
-                    .call(d3.axisBottom(phaseXScale)
-                        .ticks(2)
-                        .tickFormat(d => Math.round(d)) 
-                    );
-
-
-                xAxis.selectAll("text")
-                    .attr("transform", "translate(-10,10) rotate(-45)")
-                    .style("text-anchor", "end")
-                    .style("font-size", "10px");
-
-                const phaseData = data.filter(d => d.phase === phase.phase);
-
-                svg.append("rect")
-                    .attr("class", "disparity-area")
-                    .attr("x", x - barWidth)
-                    .attr("y", yScale(Math.max(phase.observedMean, phase.reportedMean)))
-                    .attr("width", barWidth * 2)
-                    .attr("height", Math.abs(yScale(phase.observedMean) - yScale(phase.reportedMean)))
-                    .style("fill", phase.reportedMean > phase.observedMean ? "#ff000060" : "#00ff0060")
-                    .on("mouseover", (event) => showTooltip(event, phase))
-                    .on("mouseout", hideTooltip);
-
-                svg.append("path")
-                    .datum(phaseData)
-                    .attr("class", "line")
-                    .style("stroke", colorScale(phase.phase))
-                    .attr("d", d3.line()
-                        .x(d => phaseXScale(d.relative_time))
-                        .y(d => yScale(d.observed_stress))
-                        .curve(d3.curveBasis));
-
-                svg.append("rect")
-                    .attr("x", x - barWidth)
-                    .attr("y", 0)
-                    .attr("width", barWidth * 2)
-                    .attr("height", equalWidthHeight)
-                    .attr("fill", "none")
-                    .attr("stroke", colorScale(phase.phase))
-                    .attr("stroke-width", 1);
-
-                svg.append("line")
-                    .attr("class", "mean-line")
-                    .attr("x1", x - barWidth)
-                    .attr("x2", x + barWidth)
-                    .attr("y1", yScale(phase.observedMean))
-                    .attr("y2", yScale(phase.observedMean))
-                    .style("stroke", colorScale(phase.phase));
-
-                svg.append("line")
-                    .attr("class", "reported-line")
-                    .attr("x1", x - barWidth)
-                    .attr("x2", x + barWidth)
-                    .attr("y1", yScale(phase.reportedMean))
-                    .attr("y2", yScale(phase.reportedMean))
-                    .style("stroke", colorScale(phase.phase));
-
-                svg.append("text")
-                    .attr("x", x)
-                    .attr("y", equalWidthHeight + 60) 
-                    .attr("text-anchor", "middle")
-                    .style("font-weight", "bold")
-                    .text(phase.phase);
-            });
-
-            svg.append("text")
-                .attr("x", width / 2)
-                .attr("y", -20)
-                .attr("text-anchor", "middle")
-                .style("font-size", "18px")
-                .text("Equal Width Phase View");
-        }
-
-
-        function addLegend(svg, phaseInfo) {
-            const legend = svg.append("g")
-                .attr("class", "legend")
-                .attr("transform", `translate(${width + 20}, 0)`);
-
-            const noPhaseRow = legend.append("g")
-                .attr("transform", `translate(0, 0)`);
-
-            noPhaseRow.append("line")
-                .attr("x1", 0)
-                .attr("x2", 85)
-                .attr("y1", 0)
-                .attr("y2", 0)
-                .style("stroke", colorScale("no phase"))
-                .style("stroke-width", 2);
-
-            noPhaseRow.append("text")
-                .attr("x", 90)
-                .attr("y", 4)
-                .text("no phase");
-
-            phaseInfo.forEach((phase, i) => {
-                const legendRow = legend.append("g")
-                    .attr("transform", `translate(0, ${(i + 1) * 25})`);
-
-                legendRow.append("line")
-                    .attr("x1", 0)
-                    .attr("x2", 25)
-                    .attr("y1", 0)
-                    .attr("y2", 0)
-                    .style("stroke", colorScale(phase.phase))
-                    .style("stroke-width", 2);
-
-                legendRow.append("line")
-                    .attr("class", "mean-line")
-                    .attr("x1", 30)
-                    .attr("x2", 55)
-                    .attr("y1", 0)
-                    .attr("y2", 0)
-                    .style("stroke", colorScale(phase.phase));
-
-                legendRow.append("line")
-                    .attr("class", "reported-line")
-                    .attr("x1", 60)
-                    .attr("x2", 85)
-                    .attr("y1", 0)
-                    .attr("y2", 0)
-                    .style("stroke", colorScale(phase.phase));
-
-                legendRow.append("text")
-                    .attr("x", 90)
-                    .attr("y", 4)
-                    .text(phase.phase);
-            });
-        }
-
-        updateCharts(validSubjects[currentSubjectIndex]);
-
-        d3.select("#prev-button").on("click", () => {
-            currentSubjectIndex = (currentSubjectIndex - 1 + validSubjects.length) % validSubjects.length;
-            updateCharts(validSubjects[currentSubjectIndex]);
+      d3.csv(`data/f${String(subjectNumber).padStart(2, '0')}.csv`).then(data => {
+        data.forEach(d => {
+          d.relative_time = +d.relative_time;
+          d.observed_stress = +d.observed_stress;
+          d.reported_stress = +d.reported_stress;
         });
 
-        d3.select("#next-button").on("click", () => {
-            currentSubjectIndex = (currentSubjectIndex + 1) % validSubjects.length;
-            updateCharts(validSubjects[currentSubjectIndex]);
+        const globalStart = d3.min(data, d => d.relative_time);
+        const globalEnd = d3.max(data, d => d.relative_time);
+
+        const phases = d3.group(data, d => d.phase);
+        const phaseInfo = Array.from(phases, ([phase, pdata]) => ({
+          phase,
+          start: d3.min(pdata, d => d.relative_time),
+          end: d3.max(pdata, d => d.relative_time),
+          data: pdata,
+          observedMean: d3.mean(pdata, d => d.observed_stress),
+          reportedMean: d3.mean(pdata, d => d.reported_stress)
+        })).sort((a, b) => a.start - b.start);
+
+        const noPhaseData = phaseInfo.find(p => p.phase === "no phase");
+        const regularPhases = phaseInfo.filter(p => p.phase !== "no phase");
+
+        // Calculate overall difference as the average of phase differences (ignoring "no phase")
+        let overallDiff = d3.mean(regularPhases, d => d.reportedMean - d.observedMean);
+        let summaryText = "";
+        if (overallDiff > 0) {
+          summaryText = `On average, subject f${String(subjectNumber).padStart(2, '0')} <span style="color:#ff4d4d">overestimated</span> their stress by <span style="color:#ff4d4d">+${overallDiff.toFixed(2)}</span> points.`;
+        } else if (overallDiff < 0) {
+          summaryText = `On average, subject f${String(subjectNumber).padStart(2, '0')} <span style="color:#4d4dff">underestimated</span> their stress by <span style="color:#4d4dff">${overallDiff.toFixed(2)}</span> points.`;
+        } else {
+          summaryText = `On average, subject f${String(subjectNumber).padStart(2, '0')} was accurate in their stress estimation.`;
+        }
+        d3.select("#subject-summary").html(summaryText);
+
+        const xScaleProp = d3.scaleLinear().domain([globalStart, globalEnd]).range([0, propWidth]);
+        const yScaleProp = d3.scaleLinear().domain([0, 10]).range([propHeight, 0]);
+
+        const svgProp = d3.select("#proportional-chart")
+          .append("svg")
+          .attr("width", TOTAL_WIDTH)
+          .attr("height", propHeight + propMargin.top + propMargin.bottom);
+
+        const defsProp = svgProp.append("defs");
+        const gProp = svgProp.append("g")
+          .attr("transform", `translate(${propMargin.left},${propMargin.top})`);
+
+        regularPhases.forEach((phase, i) => {
+          // Background rectangle
+          gProp.append("rect")
+            .attr("x", xScaleProp(phase.start))
+            .attr("y", yScaleProp(10))
+            .attr("width", xScaleProp(phase.end) - xScaleProp(phase.start))
+            .attr("height", yScaleProp(0) - yScaleProp(10))
+            .attr("fill", phaseBackgroundColors[phase.phase])
+            .attr("data-phase", phase.phase);
+
+          const gradId = "grad-prop-" + i;
+          createGradient(defsProp, gradId, phase.observedMean, phase.reportedMean, phaseLineColors[phase.phase]);
+
+          // Gradient fill rectangle
+          gProp.append("rect")
+            .attr("x", xScaleProp(phase.start))
+            .attr("y", yScaleProp(Math.max(phase.observedMean, phase.reportedMean)))
+            .attr("width", xScaleProp(phase.end) - xScaleProp(phase.start))
+            .attr("height", Math.abs(yScaleProp(phase.observedMean) - yScaleProp(phase.reportedMean)))
+            .attr("fill", `url(#${gradId})`)
+            .attr("data-phase", phase.phase)
+            .on("mouseover", (event) => showTooltip(event, phase))
+            .on("mouseout", hideTooltip);
+
+          // Observed stress line
+          gProp.append("path")
+            .datum(phase.data)
+            .attr("class", "line")
+            .style("stroke", phaseLineColors[phase.phase])
+            .attr("d", d3.line()
+              .x(d => xScaleProp(d.relative_time))
+              .y(d => yScaleProp(d.observed_stress))
+              .curve(d3.curveBasis))
+            .attr("data-phase", phase.phase);
+
+          // Mean line for observed stress
+          gProp.append("line")
+            .attr("class", "mean-line")
+            .attr("x1", xScaleProp(phase.start))
+            .attr("x2", xScaleProp(phase.end))
+            .attr("y1", yScaleProp(phase.observedMean))
+            .attr("y2", yScaleProp(phase.observedMean))
+            .style("stroke", phaseLineColors[phase.phase])
+            .attr("data-phase", phase.phase);
+
+          // Reported stress line
+          const repColor = phase.reportedMean > phase.observedMean ? "#ff4d4d" : "#4d4dff";
+          gProp.append("line")
+            .attr("x1", xScaleProp(phase.start))
+            .attr("x2", xScaleProp(phase.end))
+            .attr("y1", yScaleProp(phase.reportedMean))
+            .attr("y2", yScaleProp(phase.reportedMean))
+            .style("stroke", repColor)
+            .style("stroke-width", 4)
+            .style("stroke-linecap", "round")
+            .style("stroke-dasharray", "7,10")
+            .attr("data-phase", phase.phase);
         });
-    </script>
+
+        if (noPhaseData) {
+          let segments = [];
+          let currentSegment = [noPhaseData.data[0]];
+          for (let i = 1; i < noPhaseData.data.length; i++) {
+            const diff = noPhaseData.data[i].relative_time - noPhaseData.data[i - 1].relative_time;
+            if (diff > 1) {
+              segments.push(currentSegment);
+              currentSegment = [];
+            }
+            currentSegment.push(noPhaseData.data[i]);
+          }
+          if (currentSegment.length) segments.push(currentSegment);
+          segments.forEach(segment => {
+            gProp.append("path")
+              .datum(segment)
+              .attr("class", "line")
+              .style("stroke", phaseLineColors["no phase"])
+              .attr("d", d3.line()
+                .x(d => xScaleProp(d.relative_time))
+                .y(d => yScaleProp(d.observed_stress))
+                .curve(d3.curveBasis))
+              .attr("data-phase", "no phase");
+          });
+        }
+
+        gProp.append("g")
+          .attr("transform", `translate(0,${propHeight})`)
+          .call(d3.axisBottom(xScaleProp).tickFormat(formatTime).tickSize(6).tickPadding(3));
+        gProp.append("g")
+          .call(d3.axisLeft(yScaleProp).tickSize(6).tickPadding(3));
+
+        const phaseCount = regularPhases.length;
+        const totalEqualWidth = TOTAL_WIDTH;
+        const fixedWidth = (eqMarginFirst.left + eqMarginFirst.right) +
+          (phaseCount - 1) * (eqMarginOther.left + eqMarginOther.right) +
+          subchartGap * (phaseCount - 1);
+        const dataAreaWidth = (totalEqualWidth - fixedWidth) / phaseCount;
+
+        const subchartsContainer = d3.select("#equal-width-subcharts")
+          .style("width", totalEqualWidth + "px");
+
+        regularPhases.forEach((phase, i) => {
+          const margin = (i === 0) ? eqMarginFirst : eqMarginOther;
+          const svgWidth = margin.left + dataAreaWidth + margin.right;
+          const subchartInnerHeight = subchartHeight - margin.top - margin.bottom;
+
+          const phaseDiv = subchartsContainer.append("div")
+            .attr("class", "subchart-container")
+            .style("width", svgWidth + "px")
+            .style("flex", "none");
+
+          const diff = phase.reportedMean - phase.observedMean;
+          phaseDiv.append("div")
+            .attr("class", "subchart-footer")
+            .style("padding-left", i === 0 ? "50px" : "8px")
+            .html(`<span class="subchart-label">${phase.phase}</span><span class="subchart-indicator" style="color: ${phase.reportedMean > phase.observedMean ? '#ff4d4d' : '#4d4dff'}">${diff >= 0 ? '+' : ''}${diff.toFixed(2)}</span>`);
+
+          const svgPhase = phaseDiv.append("svg")
+            .attr("width", svgWidth)
+            .attr("height", subchartHeight);
+
+          const defsEq = svgPhase.append("defs");
+          const gPhase = svgPhase.append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+          const xScaleEq = d3.scaleLinear().domain([phase.start, phase.end])
+            .range([0, dataAreaWidth]);
+          const yScaleEq = d3.scaleLinear().domain([0, 10])
+            .range([subchartInnerHeight, 0]);
+
+          // Background rectangle for equal width view
+          gPhase.append("rect")
+            .attr("x", 0)
+            .attr("y", 0)
+            .attr("width", dataAreaWidth)
+            .attr("height", subchartInnerHeight)
+            .attr("fill", phaseBackgroundColors[phase.phase])
+            .attr("data-phase", phase.phase);
+
+          const gradIdEq = "grad-eq-" + i;
+          createGradient(defsEq, gradIdEq, phase.observedMean, phase.reportedMean, phaseLineColors[phase.phase]);
+
+          // Gradient fill rectangle for equal width view
+          gPhase.append("rect")
+            .attr("x", 0)
+            .attr("y", yScaleEq(Math.max(phase.observedMean, phase.reportedMean)))
+            .attr("width", dataAreaWidth)
+            .attr("height", Math.abs(yScaleEq(phase.observedMean) - yScaleEq(phase.reportedMean)))
+            .attr("fill", `url(#${gradIdEq})`)
+            .attr("data-phase", phase.phase)
+            .on("mouseover", (event) => showTooltip(event, phase))
+            .on("mouseout", hideTooltip);
+
+          // Observed stress line for equal width view
+          gPhase.append("path")
+            .datum(phase.data)
+            .attr("class", "line")
+            .style("stroke", phaseLineColors[phase.phase])
+            .attr("d", d3.line()
+              .x(d => xScaleEq(d.relative_time))
+              .y(d => yScaleEq(d.observed_stress))
+              .curve(d3.curveBasis))
+            .attr("data-phase", phase.phase);
+
+          // Mean line for observed stress in equal width view
+          gPhase.append("line")
+            .attr("class", "mean-line")
+            .attr("x1", 0)
+            .attr("x2", dataAreaWidth)
+            .attr("y1", yScaleEq(phase.observedMean))
+            .attr("y2", yScaleEq(phase.observedMean))
+            .style("stroke", phaseLineColors[phase.phase])
+            .attr("data-phase", phase.phase);
+
+          const repColorEq = phase.reportedMean > phase.observedMean ? "#ff4d4d" : "#4d4dff";
+          // Reported stress line for equal width view
+          gPhase.append("line")
+            .attr("x1", 0)
+            .attr("x2", dataAreaWidth)
+            .attr("y1", yScaleEq(phase.reportedMean))
+            .attr("y2", yScaleEq(phase.reportedMean))
+            .style("stroke", repColorEq)
+            .style("stroke-width", 4)
+            .style("stroke-linecap", "round")
+            .style("stroke-dasharray", "7,10")
+            .attr("data-phase", phase.phase);
+
+          if (i === 0) {
+            gPhase.append("g")
+              .call(d3.axisLeft(yScaleEq).ticks(5).tickSize(6).tickPadding(3));
+          }
+
+          gPhase.append("g")
+            .attr("transform", `translate(0,${subchartInnerHeight})`)
+            .call(d3.axisBottom(xScaleEq).ticks(2).tickFormat(formatTime).tickSize(6).tickPadding(3));
+        });
+
+        // Reapply toggle styling after drawing charts
+        applyToggleStyles();
+      });
+    }
+
+    updateCharts(validSubjects[currentSubjectIndex]);
+    updateActiveSubjectIndicator(validSubjects[currentSubjectIndex]);
+
+    d3.select("#prev-button").on("click", () => {
+      currentSubjectIndex = (currentSubjectIndex - 1 + validSubjects.length) % validSubjects.length;
+      updateCharts(validSubjects[currentSubjectIndex]);
+      updateActiveSubjectIndicator(validSubjects[currentSubjectIndex]);
+    });
+
+    d3.select("#next-button").on("click", () => {
+      currentSubjectIndex = (currentSubjectIndex + 1) % validSubjects.length;
+      updateCharts(validSubjects[currentSubjectIndex]);
+      updateActiveSubjectIndicator(validSubjects[currentSubjectIndex]);
+    });
+  </script>
 </body>
 
 </html>
