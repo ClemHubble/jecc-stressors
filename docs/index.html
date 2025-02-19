@@ -2,820 +2,197 @@
 <html>
 
 <head>
-  <meta charset="UTF-8">
-  <title>Stress Level Visualization</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-  <style>
-    /* Global Styles */
-    body,
-    button,
-    text {
-      font-family: 'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 20px;
-    }
-
-    .chart-container {
-      max-width: 1200px;
-      width: 100%;
-      margin: 0 auto;
-      position: relative;
-    }
-
-    h2,
-    .proportional-x-label,
-    .equal-x-label,
-    #current-subject {
-      min-height: 30px;
-    }
-
-    h2 {
-      margin-bottom: 10px;
-      font-weight: normal;
-    }
-
-    /* Navigation Buttons */
-    .nav-buttons {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    .nav-buttons button {
-      padding: 8px 20px;
-      margin: 0 10px;
-      cursor: pointer;
-      font-size: 16px;
-      background: #0366d6;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      transition: background 0.3s ease;
-    }
-
-    .nav-buttons button:hover {
-      background: #024ea2;
-    }
-
-    /* Phase Toggle Container */
-    #phase-toggle-container {
-      text-align: center;
-      margin-bottom: 10px;
-    }
-
-    #phase-toggle-container label {
-      margin: 0 10px;
-    }
-
-    /* Current Subject */
-    #current-subject {
-      text-align: center;
-      margin-bottom: 20px;
-      font-size: 20px;
-    }
-
-    /* Subject Indicator and Summary */
-    #subject-indicator {
-      text-align: center;
-      margin-bottom: 10px;
-    }
-
-    .subject-dot {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      margin: 0 4px;
-      border-radius: 50%;
-      background-color: #ccc;
-      cursor: pointer;
-      position: relative;
-    }
-
-    .subject-dot.active {
-      border: 2px solid #000;
-    }
-
-    .subject-dot.invalid {
-      background-color: #f0f0f0;
-      cursor: not-allowed;
-    }
-
-    /* Tooltip for every dot */
-    .subject-dot:hover::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #333;
-      color: #fff;
-      padding: 4px 8px;
-      border-radius: 4px;
-      white-space: nowrap;
-      font-size: 12px;
-    }
-
-    #subject-summary {
-      text-align: center;
-      font-size: 16px;
-      margin-bottom: 20px;
-    }
-
-    /* Proportional Chart */
-    #proportional-chart-wrapper {
-      max-width: 1200px;
-      width: 100%;
-      overflow-x: auto;
-      margin: 0 auto;
-      position: relative;
-    }
-
-    #proportional-chart {
-      min-height: 350px;
-      width: 1200px;
-    }
-
-    .proportional-y-label {
-      position: absolute;
-      left: -24px;
-      top: 50%;
-      transform: translateY(-50%) rotate(-90deg);
-      font-size: 14px;
-    }
-
-    .proportional-x-label {
-      text-align: center;
-      font-size: 14px;
-      margin-top: 5px;
-    }
-
-    /* Equal-width Chart */
-    #equal-width-phase-wrapper {
-      max-width: 1200px;
-      width: 100%;
-      overflow-x: auto;
-      margin: 20px auto 0;
-      position: relative;
-    }
-
-    .equal-y-label {
-      position: absolute;
-      left: -24px;
-      top: 50%;
-      transform: translateY(-50%) rotate(-90deg);
-      font-size: 14px;
-    }
-
-    #equal-width-subcharts {
-      display: flex;
-      gap: 8px;
-      min-height: 340px;
-      width: 1200px;
-    }
-
-    .equal-x-label {
-      text-align: center;
-      font-size: 14px;
-      margin-top: 5px;
-    }
-
-    /* Subchart Styles */
-    .subchart-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .subchart-footer {
-      margin-top: 5px;
-      font-size: 14px;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      padding: 0 8px;
-      box-sizing: border-box;
-    }
-
-    .subchart-label {
-      text-align: center;
-    }
-
-    .subchart-indicator {
-      text-align: center;
-      font-weight: bold;
-    }
-
-    /* D3 Chart Elements */
-    .line {
-      fill: none;
-      stroke-width: 2;
-    }
-
-    .mean-line {
-      stroke-dasharray: 5, 5;
-      stroke-width: 1.5;
-    }
-
-    .reported-line {
-      stroke-dasharray: 7, 10;
-      stroke-width: 4;
-      stroke-linecap: round;
-    }
-
-    #tooltip {
-      position: absolute;
-      padding: 10px;
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-      pointer-events: none;
-      font-size: 14px;
-      box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.1);
-      opacity: 0;
-      z-index: 1000;
-    }
-
-    /* Introduction Section */
-    #intro {
-      max-width: 1200px;
-      margin: 20px auto;
-      text-align: center;
-    }
-
-    #intro h1 {
-      margin-bottom: 0.5em;
-    }
-
-    /* Phase Grid */
-    .phase-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
-      margin: 20px 0;
-    }
-
-    .phase-item {
-      background: #fff;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 10px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .phase-item.no-phase {
-      background: #f5f5f5;
-      padding: 20px;
-    }
-
-    .phase-item img {
-      width: 100%;
-      border-radius: 8px;
-      margin-bottom: 10px;
-    }
-
-    .phase-item p {
-      font-size: 0.85em;
-      margin: 0;
-    }
-
-    /* Citation Styling */
-    .citation {
-      max-width: 1200px;
-      margin: 20px auto;
-      text-align: center;
-      font-size: 0.9em;
-      color: #555;
-    }
-
-    .citation a {
-      color: #0366d6;
-      text-decoration: none;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>How good are humans at gauging their actual vs. perceived stress?</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet">
 </head>
 
 <body>
-  <div id="intro">
-    <h1>How good are humans at gauging their actual vs. perceived stress?</h1>
-    <p class="citation">
-      Hongn, A., Bosch, F., Prado, L., &amp; Bonomini, P. (2025). <em>Wearable Device Dataset from Induced Stress
-        and Structured Exercise Sessions</em> [Data set]. PhysioNet. (Version 1.0.0).
-      <a href="https://doi.org/10.13026/zzf8-xv61" target="_blank">https://doi.org/10.13026/zzf8-xv61</a>
-    </p>
-    <p>
-      Understanding how well people can assess their own stress levels is crucial for mental health awareness and
-      effective stress management. While we often rely on self-reported stress measures, these subjective
-      assessments may not always align with our body's physiological response to stressful situations. This
-      disconnect between perceived and actual stress levels can impact our ability to recognize when we need to
-      take action to manage our stress effectively.
-    </p>
-    <p>
-      This interactive visualization compares an <u>observed stress metric</u>, derived from physiological
-      signals, with self-reported stress levels. We focus on a stress induction protocol from the <cite>Wearable
-        Device Dataset from Induced Stress and Structured Exercise Sessions</cite> (Hongn et al., 2025).
-    </p>
-    <p>
-      Various measurements, including heart rate, electrodermal activity, and blood volume pulse, were collected
-      through a wristband during an experimental protocol. Each phase of the protocol is designed to either induce
-      or alleviate stress through specific tasks and recovery periods. The protocol is broken down into 7 phases:
-    </p>
-    <div class="phase-grid">
-      <div class="phase-item">
-        <img src="assets/baseline.png" alt="Baseline phase">
-        <p><strong>Baseline:</strong> A 3-minute period at rest used to establish a physiological reference
-          point.</p>
-      </div>
-      <div class="phase-item">
-        <img src="assets/tmct.png" alt="TMCT phase">
-        <p><strong>TMCT:</strong> A modified Trier Mental Challenge Test that involves time-pressured
-          mathematical tasks designed to induce acute stress.</p>
-      </div>
-      <div class="phase-item">
-        <img src="assets/first-rest.png" alt="First Rest phase">
-        <p><strong>First Rest:</strong> A 5-minute recovery period following the TMCT, allowing participants to
-          begin returning to baseline levels.</p>
-      </div>
-      <div class="phase-item">
-        <img src="assets/real-opinion.png" alt="Real Opinion phase">
-        <p><strong>Real Opinion:</strong> Participants share their genuine opinions on controversial topics,
-          introducing a social-cognitive component to the stress response.</p>
-      </div>
-      <div class="phase-item">
-        <img src="assets/opposite-opinion.png" alt="Opposite Opinion phase">
-        <p><strong>Opposite Opinion:</strong> Participants argue against their true beliefs, adding cognitive
-          dissonance and further stress.</p>
-      </div>
-      <div class="phase-item">
-        <img src="assets/second-rest.png" alt="Second Rest phase">
-        <p><strong>Second Rest:</strong> A second recovery period after the opinion tasks to help reduce stress
-          levels before the next challenge.</p>
-      </div>
-      <div class="phase-item">
-        <img src="assets/subtract.png" alt="Subtract phase">
-        <p><strong>Subtract:</strong> Participants were asked to subtract 13 from 1022 until they reached 0,
-          designed to elicit an additional stress response.</p>
-      </div>
-      <div class="phase-item no-phase">
-        <p><strong>No Phase:</strong> Data segments that do not correspond to any structured phase, often
-          representing transitional or unclassified periods.</p>
-      </div>
-    </div>
-    <p>
-      Explore the visualization below to see how the objectively measured stress levels compare with participants'
-      self-assessments across these experimental conditions:
-    </p>
-  </div>
-
-  <div id="tooltip"></div>
-  <div class="nav-buttons">
-    <button id="prev-button">&lt; Previous</button>
-    <button id="next-button">Next &gt;</button>
-  </div>
-  <div id="current-subject"></div>
-  <div id="subject-indicator"></div>
-  <div id="subject-summary"></div>
-  <div class="chart-container">
-    <h2>Equal-width, Per-phase View</h2>
-    <div id="equal-width-phase-wrapper">
-      <div class="equal-y-label">Stress Level</div>
-      <div id="equal-width-subcharts"></div>
-      <div class="equal-x-label">Time Since Start</div>
+    <div id="intro">
+        <h1>How good are humans at gauging their actual vs. perceived stress?</h1>
+        <p class="citation">
+            Hongn, A., Bosch, F., Prado, L., &amp; Bonomini, P. (2025). <em>Wearable Device Dataset from Induced Stress
+                and Structured Exercise Sessions</em> [Data set]. PhysioNet. (Version 1.0.0).
+            <a href="https://doi.org/10.13026/zzf8-xv61" target="_blank">https://doi.org/10.13026/zzf8-xv61</a>
+        </p>
+        <p>
+            Understanding how well people can assess their own stress levels is crucial for mental health awareness and
+            effective stress management. While we often rely on self-reported stress measures, these subjective
+            assessments may not always align with our body's physiological response to stressful situations. This
+            disconnect between perceived and actual stress levels can impact our ability to recognize when we need to
+            take action to manage our stress effectively.
+        </p>
+        <p>
+            This interactive visualization compares an <u>observed stress metric</u>, derived from physiological
+            signals, with self-reported stress levels. We focus on a stress induction protocol from the <cite>Wearable
+                Device Dataset from Induced Stress and Structured Exercise Sessions</cite> (Hongn et al., 2025).
+        </p>
+        <p>
+            Various measurements, including heart rate, electrodermal activity, and blood volume pulse, were collected
+            through a wristband during an experimental protocol. Each phase of the protocol is designed to either induce
+            or alleviate stress through specific tasks and recovery periods. The protocol is broken down into 7 phases:
+        </p>
+        <div class="phase-grid">
+            <div class="phase-item">
+                <img src="assets/baseline.png" alt="Baseline phase">
+                <p><strong>Baseline:</strong> A 3-minute period at rest used to establish a physiological reference
+                    point.</p>
+            </div>
+            <div class="phase-item">
+                <img src="assets/tmct.png" alt="TMCT phase">
+                <p><strong>TMCT:</strong> A modified Trier Mental Challenge Test that involves time-pressured
+                    mathematical tasks designed to induce acute stress.</p>
+            </div>
+            <div class="phase-item">
+                <img src="assets/first-rest.png" alt="First Rest phase">
+                <p><strong>First Rest:</strong> A 5-minute recovery period following the TMCT, allowing participants to
+                    begin returning to baseline levels.</p>
+            </div>
+            <div class="phase-item">
+                <img src="assets/real-opinion.png" alt="Real Opinion phase">
+                <p><strong>Real Opinion:</strong> Participants share their genuine opinions on controversial topics,
+                    introducing a social-cognitive component to the stress response.</p>
+            </div>
+            <div class="phase-item">
+                <img src="assets/opposite-opinion.png" alt="Opposite Opinion phase">
+                <p><strong>Opposite Opinion:</strong> Participants argue against their true beliefs, adding cognitive
+                    dissonance and further stress.</p>
+            </div>
+            <div class="phase-item">
+                <img src="assets/second-rest.png" alt="Second Rest phase">
+                <p><strong>Second Rest:</strong> A second recovery period after the opinion tasks to help reduce stress
+                    levels before the next challenge.</p>
+            </div>
+            <div class="phase-item">
+                <img src="assets/subtract.png" alt="Subtract phase">
+                <p><strong>Subtract:</strong> Participants were asked to subtract 13 from 1022 until they reached 0,
+                    designed to elicit an additional stress response.</p>
+            </div>
+            <div class="phase-item no-phase">
+                <p><strong>No Phase:</strong> Data segments that do not correspond to any structured phase, often
+                    representing transitional or unclassified periods.</p>
+            </div>
+        </div>
+        <p>
+            Explore the visualization below to see how the objectively measured stress levels compare with participants'
+            self-assessments across these experimental conditions:
+        </p>
     </div>
 
-    <h2>Proportional Timeline View</h2>
-    <div id="proportional-chart-wrapper">
-      <div id="proportional-chart"></div>
-      <div class="proportional-y-label">Stress Level</div>
-      <div class="proportional-x-label">Time Since Start</div>
+    <div id="tooltip"></div>
+    <div class="nav-buttons">
+        <button id="prev-button">&lt; Previous</button>
+        <button id="next-button">Next &gt;</button>
     </div>
-    <div id="phase-toggle-container"></div>
-  </div>
+    <div id="current-subject"></div>
+    <div id="subject-indicator"></div>
+    <div id="subject-summary"></div>
+    <div class="chart-container">
+        <h2>Equal-width, Per-phase View</h2>
+        <div id="equal-width-phase-wrapper">
+            <div class="equal-y-label">Stress Level</div>
+            <div id="equal-width-subcharts"></div>
+            <div class="equal-x-label">Time Since Start</div>
+        </div>
 
-  <script>
-    const TOTAL_WIDTH = 1200;
-    const propMargin = { top: 20, right: 10, bottom: 20, left: 60 };
-    const propWidth = TOTAL_WIDTH - propMargin.left - propMargin.right;
-    const propHeight = 300;
-    const subchartHeight = 300;
-    const subchartGap = 8;
-    const eqMarginFirst = { top: 20, right: 10, bottom: 30, left: 60 };
-    const eqMarginOther = { top: 20, right: 10, bottom: 30, left: 10 };
+        <h2>Proportional Timeline View</h2>
+        <div id="proportional-chart-wrapper">
+            <div id="proportional-chart"></div>
+            <div class="proportional-y-label">Stress Level</div>
+            <div class="proportional-x-label">Time Since Start</div>
+        </div>
+        <div id="phase-toggle-container"></div>
+    </div>
 
-    // Valid subjects (excluding 7 and 14 for invalid data)
-    const validSubjects = [1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 15, 16, 17, 18];
-    let currentSubjectIndex = 0;
+    <div id="writeup" style="max-width: 800px; margin: 40px auto; line-height: 1.6; font-size: 16px;">
+        <h2>Writeup</h2>
 
-    const phaseLineColors = {
-      "baseline": "#808080",
-      "tmct": "#ff8c00",
-      "first rest": "#6fb07a",
-      "real opinion": "#ff8c00",
-      "opposite opinion": "#ff8c00",
-      "second rest": "#6fb07a",
-      "subtract": "#ff8c00",
-      "no phase": "#e0e0e0"
-    };
+        <p>This project explores the differences between self-reported stress levels and actual stress indicators. Using
+            data visualization techniques, we analyze how individuals perceive their stress compared to physiological or
+            behavioral stress markers.</p>
 
-    const phaseBackgroundColors = {
-      "baseline": "#f5f5f5",
-      "tmct": "#fff3e0",
-      "first rest": "#e8f5e9",
-      "real opinion": "#fff3e0",
-      "opposite opinion": "#fff3e0",
-      "second rest": "#e8f5e9",
-      "subtract": "#fff3e0",
-      "no phase": "#f5f5f5"
-    };
+        <p>We use survey data where participants rate their stress on a scale from 1-10, alongside physiological
+            measures such as heart rate (<abbr title="Heart Rate">HR</abbr>), temperature (<abbr
+                title="Temperature">TEMP</abbr>), blood volume pulse (<abbr title="Blood Volume Pulse">BVP</abbr>), and
+            electrodermal activity (<abbr title="Electrodermal Activity">EDA</abbr>). Our findings highlight
+            discrepancies between subjective perception and biological responses, providing insights into stress
+            awareness and management.</p>
 
-    function formatTime(seconds) {
-      const minutes = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    }
+        <p>We decided to segment our visualization per participant, since we believed it to be not appropriate for
+            different participants to be compared (each person's stress only makes sense only in the context of their
+            own body).</p>
 
-    function createGradient(defs, id, observed, reported, baseColor) {
-      const gradient = defs.append("linearGradient")
-        .attr("id", id)
-        .attr("x1", "0%")
-        .attr("y1", "0%")
-        .attr("x2", "0%")
-        .attr("y2", "100%");
-      if (reported > observed) {
-        gradient.append("stop")
-          .attr("offset", "0%")
-          .attr("stop-color", baseColor)
-          .attr("stop-opacity", 0.6);
-        gradient.append("stop")
-          .attr("offset", "100%")
-          .attr("stop-color", baseColor)
-          .attr("stop-opacity", 0);
-      } else {
-        gradient.append("stop")
-          .attr("offset", "0%")
-          .attr("stop-color", baseColor)
-          .attr("stop-opacity", 0);
-        gradient.append("stop")
-          .attr("offset", "100%")
-          .attr("stop-color", baseColor)
-          .attr("stop-opacity", 0.6);
-      }
-    }
+        <p>We also decided to deemphasize the actual stress line itself, because the main focus of our visualization is
+            the difference between the average actual stress and observed stress, rather than individual points of
+            actual stress. As such, a heavy gradient is placed between the observed stress and reported stress lines
+            per-phase (with the heavy side of the gradient on the reported end). We want the audience to see how the
+            difference in perceived stress changes throughout the course of the study when stress level varies.</p>
 
-    const showTooltip = (event, phase) => {
-      if (phase.phase === "no phase") return;
-      const disparity = Math.abs(phase.reportedMean - phase.observedMean).toFixed(2);
-      const type = phase.reportedMean > phase.observedMean ? "Overestimated" : "Underestimated";
-      d3.select("#tooltip")
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 28) + "px")
-        .html(`
-          <strong>${phase.phase}</strong><br/>
-          ${type} by ${disparity} points<br/>
-          Reported: ${phase.reportedMean.toFixed(2)}<br/>
-          Observed: ${phase.observedMean.toFixed(2)}
-        `)
-        .transition()
-        .duration(200)
-        .style("opacity", 0.9);
-    };
+        <p>Through interactive visualizations, we aim to help users understand these differences and encourage more
+            honest self-assessment of stress levels, specifically being able to admit their higher stress levels instead
+            of "playing it cool". As we found out, the most important insight is that people often guess correctly
+            whether they would become more or less stressed between phases (the direction of change), but often
+            incorrectly guess how much more or less stressed they would be (the magnitude of change). Another trend is
+            that people tend to underestimate how much more stressed they are after the stress-inducing tasks, though
+            this varies by each participant.</p>
 
-    const hideTooltip = () => {
-      d3.select("#tooltip")
-        .transition()
-        .duration(500)
-        .style("opacity", 0);
-    };
+        <h3>Data Processing</h3>
 
-    function applyToggleStyles() {
-      let activePhases = [];
-      d3.selectAll("#phase-toggle-container input[type='checkbox']").each(function () {
-        if (this.checked) {
-          activePhases.push(this.value);
-        }
-      });
-      if (activePhases.length === 0) {
-        d3.selectAll("[data-phase]").style("display", null);
-      } else {
-        d3.selectAll("[data-phase]").each(function () {
-          let elPhase = d3.select(this).attr("data-phase");
-          if (activePhases.includes(elPhase)) {
-            d3.select(this).style("display", null);
-          } else {
-            d3.select(this).style("display", "none");
-          }
-        });
-      }
-    }
+        <p>As for our development process, there was a lot of data cleaning and signal processing involved. Each of the
+            18 female participants had her own folder, where each folder contained several <abbr
+                title="Comma-Separated Values">CSV</abbr> files: essentially raw signal streams for each of the
+            physiological sensors, and <abbr title="Coordinated Universal Time">UTC</abbr> timestamps for when phases
+            started and ended. Each sensor also used different intervals (e.g. <abbr title="Heart Rate">HR</abbr> was
+            recorded at 1 Hz but temperature was recorded at 4 Hz). Cubic interpolation was done to increase working
+            interval rates, and mean downsampling was done to decrease working interval rates—we decided that 4 Hz was
+            the best frequency here since we cared the most about <abbr title="Electrodermal Activity">EDA</abbr> and
+            <abbr title="Heart Rate">HR</abbr> (which both sat around that frequency, and thus we would lose the least
+            data from downsampling and impute the least data from interpolation). Finally, we needed to align timestamps
+            together, since each raw signal stream was started and ended at slightly different times. We ended up using
+            timeframes where every signal was available, chopping off loose ends as long as they were not part of a
+            phase in the experiment.</p>
 
-    // Create phase toggle checkboxes using CSS class
-    const allPhases = ["baseline", "tmct", "first rest", "real opinion", "opposite opinion", "second rest", "subtract", "no phase"];
-    const phaseToggleContainer = d3.select("#phase-toggle-container");
-    allPhases.forEach(phase => {
-      phaseToggleContainer.append("label")
-        .attr("class", "phase-toggle-label")
-        .html(`<input type="checkbox" value="${phase}"> ${phase}`);
-    });
-    d3.selectAll("#phase-toggle-container input[type='checkbox']").on("change", applyToggleStyles);
+        <p>The most important data transformation we did in this project was creating an "observed" stress score. We
+            calculated this number by using <abbr title="Electrodermal Activity">EDA</abbr>, <abbr
+                title="Heart Rate">HR</abbr>, <abbr title="Blood Volume Pulse">BVP</abbr>, and <abbr
+                title="Temperature">TEMP</abbr>. This score was calculated by comparing each participant's physiological
+            measurements to themselves (setting a relative baseline), rather than setting a universal baseline criteria
+            (such as saying that a heart rate &gt;90 bpm means someone is stressed)—the further the deviation from the
+            baseline, the more "stressed" a person will be. Then, these stress signals were normalized and assigned
+            weights based on its contribution to stress (e.g. 35% <abbr title="Heart Rate">HR</abbr>, 35% <abbr
+                title="Electrodermal Activity">EDA</abbr>, 15% <abbr title="Temperature">TEMP</abbr>, 15% <abbr
+                title="Blood Volume Pulse">BVP</abbr>), since we found that metrics such as heart rate and <abbr
+                title="Electrodermal Activity">EDA</abbr> were higher-correlated with stress. The resulting metric is a
+            "Stress Level" scaled from 0-10.</p>
 
-    // Create subject indicator dots (18 total; subjects 7 & 14 are invalid)
-    function createSubjectIndicators() {
-      const indicator = d3.select("#subject-indicator");
-      indicator.selectAll("*").remove();
-      for (let i = 1; i <= 18; i++) {
-        let dot = indicator.append("span")
-          .attr("class", "subject-dot" + (validSubjects.includes(i) ? "" : " invalid"))
-          .attr("data-subject", i);
-        if (validSubjects.includes(i)) {
-          dot.attr("data-tooltip", `Subject f${String(i).padStart(2, '0')}`);
-        } else {
-          dot.attr("data-tooltip", `Subject f${String(i).padStart(2, '0')} is disabled due to invalid data`);
-        }
-        dot.on("click", function () {
-          const subj = +d3.select(this).attr("data-subject");
-          if (validSubjects.includes(subj)) {
-            currentSubjectIndex = validSubjects.indexOf(subj);
-            updateCharts(subj);
-            updateActiveSubjectIndicator(subj);
-          }
-        });
-      }
-    }
+        <h3>Design Decisions</h3>
 
-    function updateActiveSubjectIndicator(currentValidSubject) {
-      d3.selectAll("#subject-indicator .subject-dot")
-        .classed("active", function () {
-          return +d3.select(this).attr("data-subject") === currentValidSubject;
-        });
-    }
+        <p>Upon looking at the data, we considered visualizing each participant's sequence of stress throughout the
+            study through buttons, as well as filtering and aggregating by demographics such as age. However, we
+            realized that we don't have many participants to work with, and their demographics were too similar.
+            Specifically, they were all women in the same age range (18-30). We wanted to base our visualization on an
+            interesting insight we found, so we did exploratory data analysis and found that there was variance between
+            participant's perceived and actual stress levels when they were doing math.</p>
 
-    createSubjectIndicators();
+        <h3>Team Process</h3>
 
-    function updateCharts(subjectNumber) {
-      d3.select("#proportional-chart").selectAll("*").remove();
-      d3.select("#equal-width-subcharts").selectAll("*").remove();
-      d3.select("#current-subject").text(`Subject f${String(subjectNumber).padStart(2, '0')}`);
+        <p>We spent 12 hours and 2 full days developing our application. Work was split based on our strengths. All of
+            us worked on finding a good dataset as well as the data cleaning, and Claire organized the <abbr
+                title="Comma-Separated Values">CSV</abbr> folders, Jason worked on the D3 visualizations, while Emily
+            and Clement came up with the ideas and interpreting the data as well as writing the majority of the write
+            up. Clement also set up the GitHub repository. We spent around two hours trying to find interesting datasets
+            to work with. The data cleaning and exploratory data analysis took around 8 hours, as the data was organized
+            by phases, measurements of stress metrics by seconds, and participants. The D3 visualization took 2 full
+            days. Jason did the majority of the D3 work, while Clement made some edits to the D3 visualization to make
+            the visualization look nicer. The write up took around an hour. Emily spent one hour creating cartoon
+            graphics. That being said, the data cleaning and exploratory data analysis took the most time.</p>
+    </div>
 
-      d3.csv(`data/f${String(subjectNumber).padStart(2, '0')}.csv`).then(data => {
-        data.forEach(d => {
-          d.relative_time = +d.relative_time;
-          d.observed_stress = +d.observed_stress;
-          d.reported_stress = +d.reported_stress;
-        });
-
-        const globalStart = d3.min(data, d => d.relative_time);
-        const globalEnd = d3.max(data, d => d.relative_time);
-
-        const phases = d3.group(data, d => d.phase);
-        const phaseInfo = Array.from(phases, ([phase, pdata]) => ({
-          phase,
-          start: d3.min(pdata, d => d.relative_time),
-          end: d3.max(pdata, d => d.relative_time),
-          data: pdata,
-          observedMean: d3.mean(pdata, d => d.observed_stress),
-          reportedMean: d3.mean(pdata, d => d.reported_stress)
-        })).sort((a, b) => a.start - b.start);
-
-        const noPhaseData = phaseInfo.find(p => p.phase === "no phase");
-        const regularPhases = phaseInfo.filter(p => p.phase !== "no phase");
-
-        // Calculate overall difference as the average of phase differences (ignoring "no phase")
-        let overallDiff = d3.mean(regularPhases, d => d.reportedMean - d.observedMean);
-        let summaryText = "";
-        if (overallDiff > 0) {
-          summaryText = `On average, subject f${String(subjectNumber).padStart(2, '0')} <span style="color:#ff4d4d">overestimated</span> their stress by <span style="color:#ff4d4d">+${overallDiff.toFixed(2)}</span> points.`;
-        } else if (overallDiff < 0) {
-          summaryText = `On average, subject f${String(subjectNumber).padStart(2, '0')} <span style="color:#4d4dff">underestimated</span> their stress by <span style="color:#4d4dff">${overallDiff.toFixed(2)}</span> points.`;
-        } else {
-          summaryText = `On average, subject f${String(subjectNumber).padStart(2, '0')} was accurate in their stress estimation.`;
-        }
-        d3.select("#subject-summary").html(summaryText);
-
-        const xScaleProp = d3.scaleLinear().domain([globalStart, globalEnd]).range([0, propWidth]);
-        const yScaleProp = d3.scaleLinear().domain([0, 10]).range([propHeight, 0]);
-
-        const svgProp = d3.select("#proportional-chart")
-          .append("svg")
-          .attr("width", TOTAL_WIDTH)
-          .attr("height", propHeight + propMargin.top + propMargin.bottom);
-
-        const defsProp = svgProp.append("defs");
-        const gProp = svgProp.append("g")
-          .attr("transform", `translate(${propMargin.left},${propMargin.top})`);
-
-        regularPhases.forEach((phase, i) => {
-          // Background rectangle
-          gProp.append("rect")
-            .attr("x", xScaleProp(phase.start))
-            .attr("y", yScaleProp(10))
-            .attr("width", xScaleProp(phase.end) - xScaleProp(phase.start))
-            .attr("height", yScaleProp(0) - yScaleProp(10))
-            .attr("fill", phaseBackgroundColors[phase.phase])
-            .attr("data-phase", phase.phase);
-
-          const gradId = "grad-prop-" + i;
-          createGradient(defsProp, gradId, phase.observedMean, phase.reportedMean, phaseLineColors[phase.phase]);
-
-          // Gradient fill rectangle
-          gProp.append("rect")
-            .attr("x", xScaleProp(phase.start))
-            .attr("y", yScaleProp(Math.max(phase.observedMean, phase.reportedMean)))
-            .attr("width", xScaleProp(phase.end) - xScaleProp(phase.start))
-            .attr("height", Math.abs(yScaleProp(phase.observedMean) - yScaleProp(phase.reportedMean)))
-            .attr("fill", `url(#${gradId})`)
-            .attr("data-phase", phase.phase)
-            .on("mouseover", (event) => showTooltip(event, phase))
-            .on("mouseout", hideTooltip);
-
-          // Observed stress line
-          gProp.append("path")
-            .datum(phase.data)
-            .attr("class", "line")
-            .style("stroke", phaseLineColors[phase.phase])
-            .attr("d", d3.line()
-              .x(d => xScaleProp(d.relative_time))
-              .y(d => yScaleProp(d.observed_stress))
-              .curve(d3.curveBasis))
-            .attr("data-phase", phase.phase);
-
-          // Mean line for observed stress
-          gProp.append("line")
-            .attr("class", "mean-line")
-            .attr("x1", xScaleProp(phase.start))
-            .attr("x2", xScaleProp(phase.end))
-            .attr("y1", yScaleProp(phase.observedMean))
-            .attr("y2", yScaleProp(phase.observedMean))
-            .style("stroke", phaseLineColors[phase.phase])
-            .attr("data-phase", phase.phase);
-
-          // Reported stress line
-          const repColor = phase.reportedMean > phase.observedMean ? "#ff4d4d" : "#4d4dff";
-          gProp.append("line")
-            .attr("x1", xScaleProp(phase.start))
-            .attr("x2", xScaleProp(phase.end))
-            .attr("y1", yScaleProp(phase.reportedMean))
-            .attr("y2", yScaleProp(phase.reportedMean))
-            .style("stroke", repColor)
-            .style("stroke-width", 4)
-            .style("stroke-linecap", "round")
-            .style("stroke-dasharray", "7,10")
-            .attr("data-phase", phase.phase);
-        });
-
-        if (noPhaseData) {
-          let segments = [];
-          let currentSegment = [noPhaseData.data[0]];
-          for (let i = 1; i < noPhaseData.data.length; i++) {
-            const diff = noPhaseData.data[i].relative_time - noPhaseData.data[i - 1].relative_time;
-            if (diff > 1) {
-              segments.push(currentSegment);
-              currentSegment = [];
-            }
-            currentSegment.push(noPhaseData.data[i]);
-          }
-          if (currentSegment.length) segments.push(currentSegment);
-          segments.forEach(segment => {
-            gProp.append("path")
-              .datum(segment)
-              .attr("class", "line")
-              .style("stroke", phaseLineColors["no phase"])
-              .attr("d", d3.line()
-                .x(d => xScaleProp(d.relative_time))
-                .y(d => yScaleProp(d.observed_stress))
-                .curve(d3.curveBasis))
-              .attr("data-phase", "no phase");
-          });
-        }
-
-        gProp.append("g")
-          .attr("transform", `translate(0,${propHeight})`)
-          .call(d3.axisBottom(xScaleProp).tickFormat(formatTime).tickSize(6).tickPadding(3));
-        gProp.append("g")
-          .call(d3.axisLeft(yScaleProp).tickSize(6).tickPadding(3));
-
-        const phaseCount = regularPhases.length;
-        const totalEqualWidth = TOTAL_WIDTH;
-        const fixedWidth = (eqMarginFirst.left + eqMarginFirst.right) +
-          (phaseCount - 1) * (eqMarginOther.left + eqMarginOther.right) +
-          subchartGap * (phaseCount - 1);
-        const dataAreaWidth = (totalEqualWidth - fixedWidth) / phaseCount;
-
-        const subchartsContainer = d3.select("#equal-width-subcharts")
-          .style("width", totalEqualWidth + "px");
-
-        regularPhases.forEach((phase, i) => {
-          const margin = (i === 0) ? eqMarginFirst : eqMarginOther;
-          const svgWidth = margin.left + dataAreaWidth + margin.right;
-          const subchartInnerHeight = subchartHeight - margin.top - margin.bottom;
-
-          const phaseDiv = subchartsContainer.append("div")
-            .attr("class", "subchart-container")
-            .style("width", svgWidth + "px")
-            .style("flex", "none");
-
-          const diff = phase.reportedMean - phase.observedMean;
-          phaseDiv.append("div")
-            .attr("class", "subchart-footer")
-            .style("padding-left", i === 0 ? "50px" : "8px")
-            .html(`<span class="subchart-label">${phase.phase}</span><span class="subchart-indicator" style="color: ${phase.reportedMean > phase.observedMean ? '#ff4d4d' : '#4d4dff'}">${diff >= 0 ? '+' : ''}${diff.toFixed(2)}</span>`);
-
-          const svgPhase = phaseDiv.append("svg")
-            .attr("width", svgWidth)
-            .attr("height", subchartHeight);
-
-          const defsEq = svgPhase.append("defs");
-          const gPhase = svgPhase.append("g")
-            .attr("transform", `translate(${margin.left},${margin.top})`);
-
-          const xScaleEq = d3.scaleLinear().domain([phase.start, phase.end])
-            .range([0, dataAreaWidth]);
-          const yScaleEq = d3.scaleLinear().domain([0, 10])
-            .range([subchartInnerHeight, 0]);
-
-          // Background rectangle for equal width view
-          gPhase.append("rect")
-            .attr("x", 0)
-            .attr("y", 0)
-            .attr("width", dataAreaWidth)
-            .attr("height", subchartInnerHeight)
-            .attr("fill", phaseBackgroundColors[phase.phase])
-            .attr("data-phase", phase.phase);
-
-          const gradIdEq = "grad-eq-" + i;
-          createGradient(defsEq, gradIdEq, phase.observedMean, phase.reportedMean, phaseLineColors[phase.phase]);
-
-          // Gradient fill rectangle for equal width view
-          gPhase.append("rect")
-            .attr("x", 0)
-            .attr("y", yScaleEq(Math.max(phase.observedMean, phase.reportedMean)))
-            .attr("width", dataAreaWidth)
-            .attr("height", Math.abs(yScaleEq(phase.observedMean) - yScaleEq(phase.reportedMean)))
-            .attr("fill", `url(#${gradIdEq})`)
-            .attr("data-phase", phase.phase)
-            .on("mouseover", (event) => showTooltip(event, phase))
-            .on("mouseout", hideTooltip);
-
-          // Observed stress line for equal width view
-          gPhase.append("path")
-            .datum(phase.data)
-            .attr("class", "line")
-            .style("stroke", phaseLineColors[phase.phase])
-            .attr("d", d3.line()
-              .x(d => xScaleEq(d.relative_time))
-              .y(d => yScaleEq(d.observed_stress))
-              .curve(d3.curveBasis))
-            .attr("data-phase", phase.phase);
-
-          // Mean line for observed stress in equal width view
-          gPhase.append("line")
-            .attr("class", "mean-line")
-            .attr("x1", 0)
-            .attr("x2", dataAreaWidth)
-            .attr("y1", yScaleEq(phase.observedMean))
-            .attr("y2", yScaleEq(phase.observedMean))
-            .style("stroke", phaseLineColors[phase.phase])
-            .attr("data-phase", phase.phase);
-
-          const repColorEq = phase.reportedMean > phase.observedMean ? "#ff4d4d" : "#4d4dff";
-          // Reported stress line for equal width view
-          gPhase.append("line")
-            .attr("x1", 0)
-            .attr("x2", dataAreaWidth)
-            .attr("y1", yScaleEq(phase.reportedMean))
-            .attr("y2", yScaleEq(phase.reportedMean))
-            .style("stroke", repColorEq)
-            .style("stroke-width", 4)
-            .style("stroke-linecap", "round")
-            .style("stroke-dasharray", "7,10")
-            .attr("data-phase", phase.phase);
-
-          if (i === 0) {
-            gPhase.append("g")
-              .call(d3.axisLeft(yScaleEq).ticks(5).tickSize(6).tickPadding(3));
-          }
-
-          gPhase.append("g")
-            .attr("transform", `translate(0,${subchartInnerHeight})`)
-            .call(d3.axisBottom(xScaleEq).ticks(2).tickFormat(formatTime).tickSize(6).tickPadding(3));
-        });
-
-        // Reapply toggle styling after drawing charts
-        applyToggleStyles();
-      });
-    }
-
-    updateCharts(validSubjects[currentSubjectIndex]);
-    updateActiveSubjectIndicator(validSubjects[currentSubjectIndex]);
-
-    d3.select("#prev-button").on("click", () => {
-      currentSubjectIndex = (currentSubjectIndex - 1 + validSubjects.length) % validSubjects.length;
-      updateCharts(validSubjects[currentSubjectIndex]);
-      updateActiveSubjectIndicator(validSubjects[currentSubjectIndex]);
-    });
-
-    d3.select("#next-button").on("click", () => {
-      currentSubjectIndex = (currentSubjectIndex + 1) % validSubjects.length;
-      updateCharts(validSubjects[currentSubjectIndex]);
-      updateActiveSubjectIndicator(validSubjects[currentSubjectIndex]);
-    });
-  </script>
+    <script src="script.js"></script>
 </body>
 
 </html>
